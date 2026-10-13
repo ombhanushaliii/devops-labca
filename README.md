@@ -4,7 +4,11 @@ This lab tests a candidate application in staging and deploys it only when it pa
 
 ## Start here: the local demo
 
-Requirements: Windows and Node.js 22 or newer. No npm packages, cloud account, or database are needed. A project-local k6 2.3.0 executable is included, compiled from the unmodified official release source because this network reset the prebuilt downloads.
+Requirements: Node.js 22 or newer and the k6 CLI on Windows or macOS. No npm packages, cloud account, or database are needed. Follow the setup for your operating system below.
+
+### Windows (PowerShell)
+
+The local Windows copy includes a k6 2.3.0 executable compiled from the unmodified official release source. Git ignores that executable, so a fresh clone must install k6 using the instructions below.
 
 Open PowerShell in this folder. Run:
 
@@ -48,11 +52,105 @@ This bypass applies only to that setup process. It does not change the machine's
 $env:K6_PATH = (Get-Command k6).Source
 ```
 
+### macOS (Terminal)
+
+Use Terminal with zsh or bash. Install [Homebrew](https://brew.sh/) first if `brew` is not available. Then install [Node.js 24](https://formulae.brew.sh/formula/node@24), which meets this project's Node.js 22+ requirement, and [k6](https://grafana.com/docs/k6/latest/set-up/install-k6/):
+
+```bash
+brew install node@24 k6
+export PATH="$(brew --prefix node@24)/bin:$PATH"
+node --version
+k6 version
+```
+
+If you already have Node.js 22 or newer, install only k6 with `brew install k6`. Homebrew supplies the macOS executable; `tools/k6.exe` is a Windows executable.
+
+Open your cloned or downloaded project folder. Replace the example path with its actual location:
+
+```bash
+cd "/path/to/devops-labca"
+export K6_PATH="$(command -v k6)"
+```
+
+`K6_PATH` tells the pipeline where Homebrew installed k6. Repeat the exports in each new Terminal session you use for the demo. No `npm install` is required.
+
+Run the fast release and open the application:
+
+```bash
+node scripts/pipeline.mjs fast
+open http://localhost:3100
+```
+
+The page should show `v1-fast`. Keep the browser open, then run the slow candidate:
+
+```bash
+node scripts/pipeline.mjs slow
+echo $?
+```
+
+Expect **BLOCKED** and exit code **99**. Production should still show `v1-fast`. Run `echo $?` immediately after the pipeline command to display its exit code.
+
+Deploy the corrected version, then stop production when finished:
+
+```bash
+node scripts/pipeline.mjs fixed
+```
+
+The page should now show `v3-fixed`.
+
+```bash
+node scripts/stop.mjs
+```
+
+To use different ports, set them before running any release scenario:
+
+```bash
+export PRODUCTION_PORT=3200
+export STAGING_PORT=3201
+node scripts/pipeline.mjs fast
+open http://localhost:3200
+```
+
+#### Direct k6 demonstration on macOS
+
+Use two terminals to demonstrate the tool independently of the deployment pipeline. Keep port 3001 free of other staging processes.
+
+In **Terminal A**, start the fast staging application from the project folder:
+
+```bash
+PORT=3001 APP_ENV=staging RELEASE_FILE="$PWD/releases/fast.json" node src/app.mjs
+```
+
+In **Terminal B**, open the same project folder and run k6 directly:
+
+```bash
+mkdir -p reports
+export K6_NO_USAGE_REPORT=true
+export K6_NEW_MACHINE_READABLE_SUMMARY=false
+k6 run -e BASE_URL=http://localhost:3001 -e EXPECTED_VERSION=v1-fast -e K6_REPORT=reports/manual-fast.json tests/performance.js
+echo $?
+```
+
+Expect PASS and exit code 0. In Terminal A, press **Ctrl+C** and start the slow configuration:
+
+```bash
+PORT=3001 APP_ENV=staging RELEASE_FILE="$PWD/releases/slow.json" node src/app.mjs
+```
+
+In Terminal B, run the same test with the slow expected version:
+
+```bash
+k6 run -e BASE_URL=http://localhost:3001 -e EXPECTED_VERSION=v2-slow -e K6_REPORT=reports/manual-slow.json tests/performance.js
+echo $?
+```
+
+The latency threshold should fail with exit code 99 while the response checks still pass. Stop Terminal A with **Ctrl+C** before returning to the automated pipeline so port 3001 is free.
+
 ## What happens in a run
 
 For the presentation, read `docs/TOOL-DEMO.md` first. It shows k6 directly in two terminals before explaining the automated gate. The slides are in `docs/Lab-Presentation.pptx`, with presenter notes.
 
-Production defaults to port 3100 and staging to 3001. Set `PRODUCTION_PORT` and `STAGING_PORT` in PowerShell if you need different ports. The pipeline checks port availability before running k6.
+Production defaults to port 3100 and staging to 3001. Set `PRODUCTION_PORT` and `STAGING_PORT` in your terminal if you need different ports. The pipeline checks port availability before running k6.
 
 1. **Build candidate:** copy the current application source and selected release configuration into a new `.runtime/releases/` snapshot.
 2. **Start staging:** start that snapshot on port 3001 and wait for its health endpoint.
@@ -120,7 +218,9 @@ The performance job builds a Docker image once. Only after a successful k6 test 
 
 **Scope:** the CI demo deployment runs temporarily on the GitHub runner and ends when the job finishes. It is not a publicly hosted application. The local demo is where you show the previous release staying available. Pull requests run the performance test but do not deploy. This workflow is included as source and has not been executed on your GitHub account by this package's creator.
 
-## Optional Docker demo
+## Optional Docker demo (PowerShell)
+
+The helper below uses PowerShell. The macOS Terminal instructions above use the Node pipeline and require no Docker setup.
 
 Use this after the local demo works. Docker Desktop must have its Linux engine running. Stop the Node demo first because both routes use port 3100.
 
@@ -137,7 +237,7 @@ Docker mode displays the application and running release. Its reports are in `re
 ## Troubleshooting
 
 - **k6 missing:** run the installer above or set `K6_PATH` to an absolute executable path.
-- **Port 3000/3001 occupied:** close the app using the port. Use this project's stop script for its production process. The pipeline does not intentionally stop unrelated applications.
+- **Port 3100/3001 occupied:** close the app using the port or choose different ports as shown above. Use this project's stop script for its production process. The pipeline does not intentionally stop unrelated applications.
 - **Stale lock:** if a pipeline was forcibly interrupted, check that it has finished and stopped staging, then remove `.runtime/pipeline.lock` before rerunning.
 - **Slow release is blocked:** that is the intended result. Do not remove the thresholds or suppress the k6 exit code.
 - **Fast release unexpectedly fails:** close heavy applications, rerun once, and inspect the report. Keep thresholds unchanged between comparison runs.
