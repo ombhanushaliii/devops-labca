@@ -1,0 +1,6 @@
+.runtime/
+reports/
+tools/k6.exe
+tools/k6
+node_modules/
+.env

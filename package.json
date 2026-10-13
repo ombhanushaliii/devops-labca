@@ -1,0 +1,14 @@
+{
+  "name": "k6-deployment-lab",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Performance testing and deployment gating lab with Grafana k6",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "demo:fast": "node scripts/pipeline.mjs fast",
+    "demo:slow": "node scripts/pipeline.mjs slow",
+    "demo:fixed": "node scripts/pipeline.mjs fixed",
+    "stop": "node scripts/stop.mjs"
+  }
+}

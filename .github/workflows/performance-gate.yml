@@ -1,0 +1,100 @@
+name: Performance test and deployment gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: Candidate release to demonstrate
+        type: choice
+        options: [fast, slow, fixed]
+        default: fast
+
+permissions:
+  contents: read
+
+jobs:
+  performance:
+    name: Build and test candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      delay: ${{ steps.release.outputs.delay }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: grafana/setup-k6-action@v1
+        with:
+          k6-version: '2.3.0'
+      - name: Read release configuration
+        id: release
+        env:
+          SCENARIO: ${{ inputs.scenario || 'fast' }}
+        run: |
+          echo "version=$(jq -r .version releases/$SCENARIO.json)" >> "$GITHUB_OUTPUT"
+          echo "delay=$(jq -r .delayMs releases/$SCENARIO.json)" >> "$GITHUB_OUTPUT"
+      - name: Build image and start staging
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          DELAY: ${{ steps.release.outputs.delay }}
+        run: |
+          docker build -t k6-lab:candidate .
+          docker run -d --name staging -p 127.0.0.1:3001:3000 \
+            -e APP_ENV=staging -e RELEASE_VERSION="$VERSION" -e DELAY_MS="$DELAY" k6-lab:candidate
+          curl --fail --retry 20 --retry-connrefused --retry-delay 1 http://localhost:3001/health
+      - name: k6 acceptance gate
+        env:
+          BASE_URL: http://localhost:3001
+          EXPECTED_VERSION: ${{ steps.release.outputs.version }}
+          K6_REPORT: reports/k6-summary.json
+          K6_NO_USAGE_REPORT: 'true'
+          K6_NEW_MACHINE_READABLE_SUMMARY: 'false'
+        run: |
+          mkdir -p reports
+          k6 run --quiet tests/performance.js
+      - name: Keep performance evidence, including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report
+          path: reports/
+          if-no-files-found: warn
+      # This step runs only after a successful gate. Deploy the same image, without rebuilding.
+      - name: Save tested image
+        run: docker save k6-lab:candidate -o tested-image.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tested-image
+          path: tested-image.tar
+          retention-days: 1
+      - name: Cleanup staging
+        if: always()
+        run: docker rm -f staging || true
+
+  deploy_demo:
+    name: Deploy tested image to demo environment
+    needs: performance
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: tested-image
+      - name: Load and deploy tested image
+        env:
+          VERSION: ${{ needs.performance.outputs.version }}
+          DELAY: ${{ needs.performance.outputs.delay }}
+        run: |
+          docker load -i tested-image.tar
+          docker run -d --name demo-production -p 127.0.0.1:3000:3000 \
+            -e APP_ENV=demo-production-ci -e RELEASE_VERSION="$VERSION" -e DELAY_MS="$DELAY" k6-lab:candidate
+          curl --fail --retry 20 --retry-connrefused --retry-delay 1 http://localhost:3000/health
+          echo "### Deployment succeeded" >> "$GITHUB_STEP_SUMMARY"
+          echo "Tested release: $VERSION" >> "$GITHUB_STEP_SUMMARY"
+          echo "This lab deployment runs temporarily on the GitHub runner." >> "$GITHUB_STEP_SUMMARY"
+      - name: Cleanup demo container
+        if: always()
+        run: docker rm -f demo-production || true

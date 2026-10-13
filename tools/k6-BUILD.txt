@@ -1,0 +1,17 @@
+Bundled tool: Grafana k6 2.3.0 for Windows amd64
+Build runtime: Go 1.26.9
+Source module: go.k6.io/k6/v2@v2.3.0
+Source: https://github.com/grafana/k6/tree/v2.3.0
+Corresponding source archive: https://github.com/grafana/k6/archive/refs/tags/v2.3.0.zip
+License: GNU Affero General Public License v3.0, included as k6-LICENSE.txt
+
+The official prebuilt release download was reset by the network. This binary
+was built locally from the official, unmodified module source and dependencies.
+The Go module system verified downloaded modules using its checksum mechanism.
+
+Reproduction command with Go 1.26.9 and an absolute output directory:
+  Set GOBIN to the project's tools directory.
+  go install go.k6.io/k6/v2@v2.3.0
+
+No changes to k6's source were made. Node.js runs the application and local
+pipeline. This k6 executable runs the actual performance tests.

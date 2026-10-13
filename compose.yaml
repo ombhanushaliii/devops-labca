@@ -1,0 +1,31 @@
+services:
+  candidate:
+    build: .
+    image: k6-lab-shop:local
+    environment:
+      APP_ENV: staging
+      RELEASE_VERSION: ${RELEASE_VERSION:-v1-fast}
+      DELAY_MS: ${DELAY_MS:-30}
+    ports:
+      - "127.0.0.1:3001:3000"
+  k6:
+    image: grafana/k6:2.3.0
+    working_dir: /work
+    environment:
+      BASE_URL: http://candidate:3000
+      EXPECTED_VERSION: ${RELEASE_VERSION:-v1-fast}
+      K6_REPORT: /reports/docker-summary.json
+      K6_NO_USAGE_REPORT: "true"
+      K6_NEW_MACHINE_READABLE_SUMMARY: "false"
+    volumes:
+      - ./tests:/work/tests:ro
+      - ./reports:/reports
+    command: ["run", "--quiet", "tests/performance.js"]
+  production:
+    image: k6-lab-shop:local
+    environment:
+      APP_ENV: demo-production-docker
+      RELEASE_VERSION: ${RELEASE_VERSION:-v1-fast}
+      DELAY_MS: ${DELAY_MS:-30}
+    ports:
+      - "127.0.0.1:3100:3000"

@@ -1,0 +1,70 @@
+{
+  "environment": "Local Windows, Node.js 22.14.0, k6 2.3.0",
+  "vus": 10,
+  "duration": "15s",
+  "before": {
+    "status": "ok",
+    "appId": "k6-deployment-lab",
+    "version": "v1-fast",
+    "delayMs": 30,
+    "instanceId": "d9c025e1-a013-4413-a302-92707ad3cd0c",
+    "environment": "demo-production"
+  },
+  "afterSlow": {
+    "status": "ok",
+    "appId": "k6-deployment-lab",
+    "version": "v1-fast",
+    "delayMs": 30,
+    "instanceId": "d9c025e1-a013-4413-a302-92707ad3cd0c",
+    "environment": "demo-production"
+  },
+  "afterFixed": {
+    "status": "ok",
+    "appId": "k6-deployment-lab",
+    "version": "v3-fixed",
+    "delayMs": 30,
+    "instanceId": "fd080c13-071a-4e33-8fea-35afce70b18e",
+    "environment": "demo-production"
+  },
+  "history": [
+    {
+      "id": "1791874925353-fast",
+      "scenario": "fast",
+      "version": "v1-fast",
+      "status": "deployed",
+      "startedAt": "2026-10-13T07:02:05.396Z",
+      "p95Ms": 47.745369999999994,
+      "failureRate": 0,
+      "requests": 635,
+      "checksRate": 1,
+      "exitCode": 0,
+      "report": "reports/1791874925353-fast.json"
+    },
+    {
+      "id": "1791874941497-slow",
+      "scenario": "slow",
+      "version": "v2-slow",
+      "status": "blocked",
+      "startedAt": "2026-10-13T07:02:21.551Z",
+      "p95Ms": 1218.85517,
+      "failureRate": 0,
+      "requests": 110,
+      "checksRate": 1,
+      "exitCode": 99,
+      "report": "reports/1791874941497-slow.json"
+    },
+    {
+      "id": "1791874957737-fixed",
+      "scenario": "fixed",
+      "version": "v3-fixed",
+      "status": "deployed",
+      "startedAt": "2026-10-13T07:02:37.789Z",
+      "p95Ms": 46.5799,
+      "failureRate": 0,
+      "requests": 634,
+      "checksRate": 1,
+      "exitCode": 0,
+      "report": "reports/1791874957737-fixed.json"
+    }
+  ]
+}
